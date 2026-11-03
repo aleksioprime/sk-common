@@ -6,11 +6,13 @@ from sqlalchemy import select
 from sk_common.audit import record
 from sk_common.deps import AdminUser, Db
 from sk_common.people import service
-from sk_common.people.models import Department, StudyClass, SyncRun, User
+from sk_common.people.models import Department, Person, StudyClass, SyncRun, User
 from sk_common.people.schemas import (
     ClassOut,
     DepartmentOut,
+    PersonAdmin,
     PersonPage,
+    PersonRow,
     SyncRequest,
     SyncRunOut,
     UserCreate,
@@ -35,7 +37,38 @@ async def list_persons(
     limit: Annotated[int, Query(ge=1, le=200)] = 50,
 ) -> PersonPage:
     items, total = await service.list_persons(db, search, kind, offset, limit)
-    return PersonPage(items=items, total=total)
+    users = await service.users_by_person(db, [person.id for person in items])
+    return PersonPage(items=[_person_row(person, users.get(person.id)) for person in items], total=total)
+
+
+def _person_row(person: Person, user: User | None) -> PersonRow:
+    row = PersonRow.model_validate(person)
+    row.user_id = user.id if user else None
+    row.is_superuser = bool(user and user.is_superuser)
+    return row
+
+
+@router.put('/persons/{person_id}/admin', response_model=PersonRow, summary='Права администратора персоны')
+async def set_person_admin(person_id: int, payload: PersonAdmin, db: Db, admin: AdminUser) -> PersonRow:
+    """Выдать права человеку из справочника, даже если он ещё не входил: учётная запись создаётся по его email."""
+    person = await db.get(Person, person_id)
+    if person is None:
+        raise HTTPException(status.HTTP_404_NOT_FOUND, 'Персона не найдена')
+    user = (await service.users_by_person(db, [person.id])).get(person.id)
+    if user is None:
+        if not payload.is_superuser:
+            return _person_row(person, None)
+        if not person.email:
+            raise HTTPException(status.HTTP_400_BAD_REQUEST, 'У персоны нет email: учётную запись не создать')
+        if not person.is_active:
+            raise HTTPException(status.HTTP_400_BAD_REQUEST, 'Персона отключена в SkolStream')
+        user = await service.ensure_user(db, person, person.email)
+    if user.id == admin.id and not payload.is_superuser:
+        raise HTTPException(status.HTTP_400_BAD_REQUEST, 'Нельзя снять права или отключить самого себя')
+    user.is_superuser = payload.is_superuser
+    record(db, 'people.person.admin', 'user', user.id, admin.id, person_id=person.id, is_superuser=user.is_superuser)
+    await db.commit()
+    return _person_row(person, user)
 
 
 @router.get('/users', response_model=UserPage, summary='Учётные записи')

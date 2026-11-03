@@ -36,8 +36,15 @@ class PersonOut(ORMModel):
     departments: list[DepartmentOut]
 
 
+class PersonRow(PersonOut):
+    """Строка списка персон: учётная запись, если человек уже входил или ему выданы права."""
+
+    user_id: int | None = None
+    is_superuser: bool = False
+
+
 class PersonPage(BaseModel):
-    items: list[PersonOut]
+    items: list[PersonRow]
     total: int
 
 
@@ -67,6 +74,10 @@ class UserUpdate(BaseModel):
     password: str | None = Field(default=None, min_length=8, max_length=200)
     full_name: str | None = Field(default=None, max_length=300)
     is_employee: bool | None = Field(default=None, description='Сотрудник гимназии')
+
+
+class PersonAdmin(BaseModel):
+    is_superuser: bool
 
 
 class UserCreate(BaseModel):

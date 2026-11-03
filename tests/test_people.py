@@ -3,7 +3,7 @@ import uuid
 import pytest
 from sqlalchemy import select
 
-from sk_common.people.models import Department, Person, StudyClass, SyncRun
+from sk_common.people.models import Department, Person, StudyClass, SyncRun, User
 from sk_common.people.service import apply_directory
 from sk_common.people.sync import STALE_RUN, run_directory_sync, start_scheduled_sync
 from sk_common.security import now_utc
@@ -88,6 +88,41 @@ async def test_admin_cannot_demote_self(db, client):
     admin = await login_as(db, client, is_superuser=True)
     response = await client.patch(f'/api/v1/people/users/{admin.id}', json={'is_superuser': False})
     assert response.status_code == 400
+
+
+async def test_admin_grants_rights_to_person_before_first_login(db, client):
+    await apply_directory(db, directory_payload(), full=True)
+    await db.commit()
+    await login_as(db, client, is_superuser=True)
+    teacher = await _person(db, TEACHER_ID)
+
+    response = await client.put(f'/api/v1/people/persons/{teacher.id}/admin', json={'is_superuser': True})
+    assert response.status_code == 200
+    assert response.json()['is_superuser'] is True
+    user = await db.scalar(select(User).where(User.person_id == teacher.id))
+    assert user.email == 'teacher@skolkovo.example.org' and user.is_superuser
+
+    listed = await client.get('/api/v1/people/persons', params={'search': 'петров'})
+    assert listed.json()['items'][0]['user_id'] == user.id
+    assert listed.json()['items'][0]['is_superuser'] is True
+
+    response = await client.put(f'/api/v1/people/persons/{teacher.id}/admin', json={'is_superuser': False})
+    assert response.json()['is_superuser'] is False
+
+
+async def test_person_admin_checks(db, client):
+    admin = await login_as(db, client, is_superuser=True)
+    no_email = Person(last_name='Безпочтин')
+    db.add(no_email)
+    await db.commit()
+
+    assert (
+        await client.put(f'/api/v1/people/persons/{no_email.id}/admin', json={'is_superuser': True})
+    ).status_code == 400
+    revoke = await client.put(f'/api/v1/people/persons/{no_email.id}/admin', json={'is_superuser': False})
+    assert revoke.status_code == 200 and revoke.json()['user_id'] is None
+    demote_self = await client.put(f'/api/v1/people/persons/{admin.person_id}/admin', json={'is_superuser': False})
+    assert demote_self.status_code == 400
 
 
 async def test_admin_grants_rights(db, client):
