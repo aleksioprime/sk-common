@@ -1,6 +1,6 @@
 [project]
 name = "sk-common"
-version = "0.1.0"
+version = "0.1.1"
 description = "Общая основа школьных сервисов гимназии: вход через SkolStream и по email, справочник людей, журнал действий"
 requires-python = ">=3.12"
 dependencies = [

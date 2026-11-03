@@ -1,6 +1,9 @@
 """Клиент SkolStream: OAuth2-вход, профиль пользователя и выгрузка справочников.
 
 Вход: /o/authorize/ → /o/token/ (SkolStream выдаёт JWT) → /api/v1/user/me.
+redirect_uri не передаётся: шлюз перед SkolStream отвечает 403 на запросы из интернета, в параметрах
+которых есть адрес https://…. По OAuth 2.0 (RFC 6749, 4.1.1) без redirect_uri SkolStream возвращает
+на единственный адрес, зарегистрированный у приложения, — он должен быть ровно один.
 Справочники: /api/v1/integrations/directory/ со служебным токеном (контракт — в README пакета).
 """
 
@@ -45,9 +48,9 @@ class SkolstreamProfile:
 
 
 class SkolstreamClient(Protocol):
-    def authorize_url(self, redirect_uri: str, state: str, code_challenge: str) -> str: ...
+    def authorize_url(self, state: str, code_challenge: str) -> str: ...
 
-    async def exchange_code(self, code: str, redirect_uri: str, code_verifier: str) -> str: ...
+    async def exchange_code(self, code: str, code_verifier: str) -> str: ...
 
     async def fetch_profile(self, access_token: str) -> SkolstreamProfile: ...
 
@@ -62,12 +65,11 @@ class HttpSkolstreamClient:
         self.directory_token = directory_token
         self.timeout = timeout
 
-    def authorize_url(self, redirect_uri: str, state: str, code_challenge: str) -> str:
+    def authorize_url(self, state: str, code_challenge: str) -> str:
         query = urlencode(
             {
                 'response_type': 'code',
                 'client_id': self.client_id,
-                'redirect_uri': redirect_uri,
                 'scope': 'read',
                 'state': state,
                 'code_challenge': code_challenge,
@@ -76,11 +78,10 @@ class HttpSkolstreamClient:
         )
         return f'{self.base_url}/o/authorize/?{query}'
 
-    async def exchange_code(self, code: str, redirect_uri: str, code_verifier: str) -> str:
+    async def exchange_code(self, code: str, code_verifier: str) -> str:
         data = {
             'grant_type': 'authorization_code',
             'code': code,
-            'redirect_uri': redirect_uri,
             'client_id': self.client_id,
             'client_secret': self.client_secret,
             'code_verifier': code_verifier,

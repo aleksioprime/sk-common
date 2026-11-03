@@ -83,10 +83,6 @@ async def session_method(db: AsyncSession, request: Request) -> str | None:
     return await db.scalar(select(AuthSession.method).where(AuthSession.id == session_id))
 
 
-def _callback_url() -> str:
-    return f'{settings.app_url.rstrip("/")}{SKOLSTREAM_PATH}/callback'
-
-
 def create_auth_router(me_model: type[Me] = Me, me_extra: MeExtra | None = None) -> APIRouter:
     router = APIRouter(prefix='/v1/auth', tags=['auth'])
 
@@ -166,7 +162,7 @@ def create_auth_router(me_model: type[Me] = Me, me_extra: MeExtra | None = None)
             raise HTTPException(status.HTTP_404_NOT_FOUND, 'Вход через SkolStream не настроен')
         state, verifier = new_secret(), new_secret()
         challenge = base64.urlsafe_b64encode(hashlib.sha256(verifier.encode()).digest()).rstrip(b'=').decode()
-        response = RedirectResponse(client.authorize_url(_callback_url(), state, challenge), status_code=302)
+        response = RedirectResponse(client.authorize_url(state, challenge), status_code=302)
         response.set_cookie(
             OAUTH_COOKIE,
             sign_state({'state': state, 'verifier': verifier, 'next': service.safe_next_path(next)}),
@@ -191,7 +187,7 @@ def create_auth_router(me_model: type[Me] = Me, me_extra: MeExtra | None = None)
             saved = read_state(request.cookies.get(OAUTH_COOKIE, ''))
             if not code or not state or saved.get('state') != state:
                 raise service.AuthError('Сессия входа устарела')
-            token = await client.exchange_code(code, _callback_url(), saved['verifier'])
+            token = await client.exchange_code(code, saved['verifier'])
             profile = await client.fetch_profile(token)
             if not profile.email:
                 raise service.AuthError('В профиле SkolStream нет email')

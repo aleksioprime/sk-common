@@ -32,14 +32,14 @@ class FakeSkolstream:
             class_ids=[CLASS_ID],
         )
         self.directory = directory_payload()
-        self.exchanged: list[tuple[str, str, str]] = []
+        self.exchanged: list[tuple[str, str]] = []
         self.requested_since: list[str | None] = []
 
-    def authorize_url(self, redirect_uri, state, code_challenge):
+    def authorize_url(self, state, code_challenge):
         return f'https://skolstream.test/o/authorize/?state={state}&code_challenge={code_challenge}'
 
-    async def exchange_code(self, code, redirect_uri, code_verifier):
-        self.exchanged.append((code, redirect_uri, code_verifier))
+    async def exchange_code(self, code, code_verifier):
+        self.exchanged.append((code, code_verifier))
         return 'skolstream-access-token'
 
     async def fetch_profile(self, access_token):

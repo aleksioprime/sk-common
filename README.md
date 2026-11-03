@@ -15,7 +15,7 @@
 `requirements.txt` сервиса — архив тега с GitHub (git в образе не нужен):
 
 ```
-sk-common @ https://github.com/aleksioprime/sk-common/archive/refs/tags/v0.1.0.tar.gz
+sk-common @ https://github.com/aleksioprime/sk-common/archive/refs/tags/v0.1.1.tar.gz
 ```
 
 Для разработки пакета вместе с сервисом: `pip install -e ../sk-common`.
@@ -156,8 +156,14 @@ app.dependency_overrides[get_skolstream_client] = lambda: skolstream
 Подключение сервиса к SkolStream (в репозитории SkolStream):
 
 - вход — `docs/guides/dev/oauth-apps.md`: OAuth-приложение Confidential + Authorization code,
-  redirect `https://<сервис>/api/v1/auth/skolstream/callback`, включить «Skip authorization»;
+  redirect `https://<сервис>/api/v1/auth/skolstream/callback` — **ровно один адрес**, включить
+  «Skip authorization»;
 - справочник — `docs/guides/dev/directory-export.md`: токен выгрузки в админке SkolStream, отдельный на сервис.
+
+Пакет не передаёт `redirect_uri` ни в `/o/authorize/`, ни в `/o/token/`: шлюз перед SkolStream отвечает
+403 «Forbidden / Transaction ID» на запросы из интернета, в параметрах которых есть адрес `https://…`.
+Без `redirect_uri` SkolStream возвращает на единственный зарегистрированный адрес (RFC 6749, 4.1.1).
+Поэтому у OAuth-приложения сервиса должен быть зарегистрирован ровно один адрес возврата.
 
 Сервис представляется SkolStream как `<project_name через дефис>/<version> (+<app_url>)`:
 шлюз перед SkolStream отклоняет типовые заголовки библиотек.
