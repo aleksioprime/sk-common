@@ -15,7 +15,7 @@
 `requirements.txt` сервиса — архив тега с GitHub (git в образе не нужен):
 
 ```
-sk-common @ https://github.com/aleksioprime/sk-common/archive/refs/tags/v0.1.1.tar.gz
+sk-common @ https://github.com/aleksioprime/sk-common/archive/refs/tags/v0.1.2.tar.gz
 ```
 
 Для разработки пакета вместе с сервисом: `pip install -e ../sk-common`.
@@ -182,7 +182,8 @@ extra_hosts:
 - поля из SkolStream в сервисе только для чтения, редактируются только внешние персоны;
 - пропавшие в полном срезе получают `is_active=false` и не удаляются; пустой полный срез никого не отключает;
 - отключённая в SkolStream персона не входит, кроме администраторов сервиса;
-- роли SkolStream не переносятся, права назначаются в сервисе.
+- роли SkolStream не переносятся, права назначаются в сервисе; администратором можно сделать человека из справочника
+  до его первого входа (`PUT /api/v1/people/persons/{id}/admin`, учётная запись создаётся по его email).
 
 ## Разработка пакета
 

@@ -169,6 +169,11 @@ async def list_persons(
     return list(rows.unique()), total or 0
 
 
+async def users_by_person(session: AsyncSession, person_ids: list[int]) -> dict[int, User]:
+    rows = await session.scalars(select(User).where(User.person_id.in_(person_ids or [0])))
+    return {user.person_id: user for user in rows.unique()}
+
+
 async def list_users(session: AsyncSession, search: str = '', offset: int = 0, limit: int = 50):
     query = select(User).outerjoin(User.person)
     if search:
